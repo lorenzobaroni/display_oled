@@ -37,8 +37,8 @@ pico_sdk_init()
 
 add_executable(display_oled display_oled.c inc/ssd1306.c)
 
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/generated)
-pico_generate_pio_header(display_oled ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/generated)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/inc)
+pico_generate_pio_header(display_oled ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/inc)
 
 pico_set_program_name(display_oled "display_oled")
 pico_set_program_version(display_oled "0.1")
