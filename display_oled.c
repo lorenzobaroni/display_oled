@@ -8,6 +8,7 @@
 #include "pico/stdlib.h"
 #include "ws2812.pio.h" // Biblioteca para controlar LEDs WS2812
 #include "inc/font.h"  // Biblioteca de fontes personalizada
+#include "inc/ssd1306.h"
 
 // Definições de hardware
 #define MATRIX_PIN 7
@@ -17,10 +18,10 @@
 #define LED_BLUE 12
 #define BUTTON_A 5
 #define BUTTON_B 6
-#define OLED_SDA 14
-#define OLED_SCL 15
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
+#define I2C_PORT i2c1
+#define I2C_SDA 14
+#define I2C_SCL 15
+#define endereco 0x3C
 
 // Variáveis de estado
 volatile bool ledGreenState = false;
@@ -81,9 +82,18 @@ void gpio_callback(uint gpio, uint32_t events) {
     }
 }
 
-void setup() {
+
+
+int main() {
+    
     stdio_init_all();
-    sleep_ms(2000); // Aguarda inicialização do USB
+
+    // Inicializa I2C
+    i2c_init(I2C_PORT, 400 * 1000);
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SDA);
+    gpio_pull_up(I2C_SCL);
 
     gpio_init(LED_GREEN);
     gpio_set_dir(LED_GREEN, GPIO_OUT);
@@ -103,28 +113,39 @@ void setup() {
     gpio_pull_up(BUTTON_B);
     gpio_set_irq_enabled(BUTTON_B, GPIO_IRQ_EDGE_FALL, true);
 
+    // Inicializa o display SSD1306
+    ssd1306_t ssd;
+    ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT);
+    ssd1306_config(&ssd);
+    ssd1306_send_data(&ssd);
+
+    ssd1306_fill(&ssd, false);
+    ssd1306_send_data(&ssd);
+
     // Configuração correta da interrupção para múltiplos botões
     gpio_set_irq_enabled_with_callback(BUTTON_A, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
     gpio_set_irq_enabled_with_callback(BUTTON_B, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
 
     init_matrix(); // Inicializa a Matriz WS2812
-}
 
-void loop() {
-    while (true) {
-        char input;
-        if (scanf("%c", &input) == 1) {
-            printf("Recebido: %c\n", input);
-            if (input >= '0' && input <= '9') {
-                show_number(input - '0');
+    char received_char = ' ';
+
+     while (true) {
+        if (stdio_usb_connected()) {
+            received_char = getchar(); // Lê o caractere enviado pelo Serial Monitor
+
+            printf("Recebido: %c\n", received_char); // Debug no Serial Monitor
+
+            // Atualiza o display com o caractere recebido
+            ssd1306_fill(&ssd, false);
+            ssd1306_draw_char(&ssd, received_char, 50, 30);
+            ssd1306_send_data(&ssd);
+            
+            if (received_char >= '0' && received_char <= '9') {
+                show_number(received_char - '0');
             }
         }
-        sleep_ms(10);
+        sleep_ms(100);
     }
-}
-
-int main() {
-    setup();
-    loop();
     return 0;
 }
