@@ -1,4 +1,3 @@
-
 // Bibliotecas necessárias para Raspberry Pi Pico W
 #include <stdio.h>
 #include <stdbool.h>
