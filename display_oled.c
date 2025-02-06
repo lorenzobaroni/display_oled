@@ -182,15 +182,18 @@ int main() {
     init_matrix(); // Inicializa a Matriz WS2812
 
      while (true) {
-        if (stdio_usb_connected()) {
-            received_char = getchar(); // Lê o caractere enviado pelo Serial Monitor
-
+        // Desenha o retângulo estático
+        desenhar_retangulo_estatico(&ssd);
+        char received_char = ' ';
+        if (scanf("%c", &received_char) == 1) {
             printf("Recebido: %c\n", received_char); // Debug no Serial Monitor
 
+            // Atualiza o caractere mais recente
+            if (received_char != '\n' && received_char != '\r') { // Ignora enter
+                ultimo_char = received_char;
+            }
             // Atualiza o display com o caractere recebido
-            ssd1306_fill(&ssd, false);
-            ssd1306_draw_char(&ssd, received_char, 50, 30);
-            ssd1306_send_data(&ssd);
+            atualizar_display();
             
             if (received_char >= '0' && received_char <= '9') {
                 show_number(received_char - '0');
