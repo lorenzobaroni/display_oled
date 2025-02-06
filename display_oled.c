@@ -104,7 +104,10 @@ void init_matrix() {
 
 // Exibe um número na Matriz WS2812
 void show_number(uint8_t num) {
-    if (num > 9) return;
+    static uint8_t last_number = 255; // Número armazenado para evitar redibug
+    if (num > 9 || num == last_number) return;
+
+    last_number = num;
     for (int i = 0; i < NUM_LEDS; i++) {
         uint32_t color = formatos_numeros[num][i] ? 0x00FF00 : 0x000000;
         pio_sm_put_blocking(pio, sm, color << 8);
@@ -179,18 +182,15 @@ int main() {
     init_matrix(); // Inicializa a Matriz WS2812
 
      while (true) {
-        // Desenha o retângulo estático
-        desenhar_retangulo_estatico(&ssd);
-        char received_char = ' ';
-        if (scanf("%c", &received_char) == 1) {
+        if (stdio_usb_connected()) {
+            received_char = getchar(); // Lê o caractere enviado pelo Serial Monitor
+
             printf("Recebido: %c\n", received_char); // Debug no Serial Monitor
 
-            // Atualiza o caractere mais recente
-            if (received_char != '\n' && received_char != '\r') { // Ignora enter
-                ultimo_char = received_char;
-            }
             // Atualiza o display com o caractere recebido
-            atualizar_display();
+            ssd1306_fill(&ssd, false);
+            ssd1306_draw_char(&ssd, received_char, 50, 30);
+            ssd1306_send_data(&ssd);
             
             if (received_char >= '0' && received_char <= '9') {
                 show_number(received_char - '0');
