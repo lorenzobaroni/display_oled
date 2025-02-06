@@ -33,6 +33,54 @@ PIO pio = pio0;
 uint sm;
 uint offset;
 
+ssd1306_t ssd;
+
+char ultimo_char = ' '; // Variável para armazenar o último caractere digitado
+
+void atualizar_display() {
+    ssd1306_fill(&ssd, false); // Limpa a tela
+
+    // Exibir o caractere digitado em tamanho maior
+    char texto_char[2] = {ultimo_char, '\0'}; 
+    ssd1306_draw_large_char(&ssd, texto_char[0], 50, 10); // Exibe grande no topo
+
+    // Exibir estado dos LEDs abaixo do caractere
+    if (ledGreenState && ledBlueState) {
+        ssd1306_draw_string(&ssd, "Ambos LEDs", 20, 40);
+        ssd1306_draw_string(&ssd, "Ligados", 30, 50);
+    } 
+    else if (ledGreenState) {
+        ssd1306_draw_string(&ssd, "LED Verde", 30, 40);
+        ssd1306_draw_string(&ssd, "Ligado", 40, 50);
+    } 
+    else if (ledBlueState) {
+        ssd1306_draw_string(&ssd, "LED Azul", 30, 40);
+        ssd1306_draw_string(&ssd, "Ligado", 40, 50);
+    } 
+    else {
+        ssd1306_draw_string(&ssd, "Nenhum LED", 20, 40);
+        ssd1306_draw_string(&ssd, "Ligado", 40, 50);
+    }
+
+    ssd1306_send_data(&ssd); // Atualiza o display
+}
+
+void desenhar_retangulo_estatico(ssd1306_t *ssd) {
+    // Define a posição e tamanho do retângulo
+    uint8_t x0 = 2;  // Posição X inicial (margem)
+    uint8_t y0 = 2;  // Posição Y inicial (margem)
+    uint8_t largura = 124;  // Largura do retângulo
+    uint8_t altura = 60;    // Altura do retângulo
+
+    // Desenha o retângulo estático (contorno apenas)
+    ssd1306_rect(ssd, x0, y0, largura, altura, true, false);
+
+    // Atualiza o display para exibir o retângulo
+    ssd1306_send_data(ssd);
+}
+
+
+
 // Números para a matriz de LEDs
 const uint32_t formatos_numeros[10][NUM_LEDS] = {
     {1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1}, // 0
@@ -58,13 +106,15 @@ void init_matrix() {
 void show_number(uint8_t num) {
     if (num > 9) return;
     for (int i = 0; i < NUM_LEDS; i++) {
-        uint32_t color = formatos_numeros[num][i] ? 0x00FF00 : 0x000000; // Verde para ativo, preto para inativo
+        uint32_t color = formatos_numeros[num][i] ? 0x00FF00 : 0x000000;
         pio_sm_put_blocking(pio, sm, color << 8);
     }
 }
 
-// Função genérica de interrupção para ambos os botões
+// Função de interrupção para ambos os botões
 void gpio_callback(uint gpio, uint32_t events) {
+    // Desenha o retângulo estático
+    desenhar_retangulo_estatico(&ssd);
     unsigned long currentTime = to_ms_since_boot(get_absolute_time());
     if (currentTime - lastInterruptTime < debounceDelay) {
         return;  // Ignorar interrupção se for muito rápida
@@ -75,13 +125,15 @@ void gpio_callback(uint gpio, uint32_t events) {
         ledGreenState = !ledGreenState;
         gpio_put(LED_GREEN, ledGreenState);
         printf("Botão A pressionado. LED Verde %s\n", ledGreenState ? "Ligado" : "Desligado");
-    } else if (gpio == BUTTON_B) {
+    } 
+    else if (gpio == BUTTON_B) {
         ledBlueState = !ledBlueState;
         gpio_put(LED_BLUE, ledBlueState);
         printf("Botão B pressionado. LED Azul %s\n", ledBlueState ? "Ligado" : "Desligado");
     }
-}
 
+    atualizar_display(); // Atualiza o display após mudança no LED
+}
 
 
 int main() {
@@ -114,11 +166,9 @@ int main() {
     gpio_set_irq_enabled(BUTTON_B, GPIO_IRQ_EDGE_FALL, true);
 
     // Inicializa o display SSD1306
-    ssd1306_t ssd;
     ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT);
     ssd1306_config(&ssd);
     ssd1306_send_data(&ssd);
-
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
 
@@ -128,18 +178,19 @@ int main() {
 
     init_matrix(); // Inicializa a Matriz WS2812
 
-    char received_char = ' ';
-
      while (true) {
-        if (stdio_usb_connected()) {
-            received_char = getchar(); // Lê o caractere enviado pelo Serial Monitor
-
+        // Desenha o retângulo estático
+        desenhar_retangulo_estatico(&ssd);
+        char received_char = ' ';
+        if (scanf("%c", &received_char) == 1) {
             printf("Recebido: %c\n", received_char); // Debug no Serial Monitor
 
+            // Atualiza o caractere mais recente
+            if (received_char != '\n' && received_char != '\r') { // Ignora enter
+                ultimo_char = received_char;
+            }
             // Atualiza o display com o caractere recebido
-            ssd1306_fill(&ssd, false);
-            ssd1306_draw_char(&ssd, received_char, 50, 30);
-            ssd1306_send_data(&ssd);
+            atualizar_display();
             
             if (received_char >= '0' && received_char <= '9') {
                 show_number(received_char - '0');

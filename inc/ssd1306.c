@@ -77,13 +77,6 @@ void ssd1306_pixel(ssd1306_t *ssd, uint8_t x, uint8_t y, bool value) {
     ssd->ram_buffer[index] &= ~(1 << pixel);
 }
 
-/*
-void ssd1306_fill(ssd1306_t *ssd, bool value) {
-  uint8_t byte = value ? 0xFF : 0x00;
-  for (uint8_t i = 1; i < ssd->bufsize; ++i)
-    ssd->ram_buffer[i] = byte;
-}*/
-
 void ssd1306_fill(ssd1306_t *ssd, bool value) {
     // Itera por todas as posições do display
     for (uint8_t y = 0; y < ssd->height; ++y) {
@@ -175,6 +168,36 @@ void ssd1306_draw_char(ssd1306_t *ssd, char c, uint8_t x, uint8_t y)
         for (uint8_t j = 0; j < 8; ++j)
         {
             ssd1306_pixel(ssd, x + i, y + j, line & (1 << j));
+        }
+    }
+}
+
+void ssd1306_draw_large_char(ssd1306_t *ssd, char c, uint8_t x, uint8_t y) {
+    uint16_t index = 0;
+
+    if (c >= 'A' && c <= 'Z') {
+        index = (c - 'A' + 11) * 8; // Mapeia letras maiúsculas
+    } 
+    else if (c >= 'a' && c <= 'z') {
+        index = (c - 'a' + 37) * 8; // Mapeia letras minúsculas corretamente
+    }
+    else if (c >= '0' && c <= '9') {
+        index = (c - '0' + 1) * 8; // Mapeia números
+    }
+    else {
+        return; // Caractere não suportado
+    }
+
+    for (uint8_t i = 0; i < 8; ++i) {
+        uint8_t line = font[index + i];
+        for (uint8_t j = 0; j < 8; ++j) {
+            bool pixel = line & (1 << j);
+            
+            // Desenha cada pixel como um bloco 2x2 para ampliar o caractere
+            ssd1306_pixel(ssd, x + (i * 2), y + (j * 2), pixel);
+            ssd1306_pixel(ssd, x + (i * 2) + 1, y + (j * 2), pixel);
+            ssd1306_pixel(ssd, x + (i * 2), y + (j * 2) + 1, pixel);
+            ssd1306_pixel(ssd, x + (i * 2) + 1, y + (j * 2) + 1, pixel);
         }
     }
 }
