@@ -26,16 +26,37 @@
 // Variáveis de estado
 volatile bool ledGreenState = false;
 volatile bool ledBlueState = false;
-volatile unsigned long lastInterruptTime = 0;
-const unsigned long debounceDelay = 200; // Debounce de 200ms
+volatile bool debounceActive = false;  // Estado do debounce
+const unsigned long debounceDelay = 200; // Tempo de debounce
 
 PIO pio = pio0;
 uint sm;
 uint offset;
 
 ssd1306_t ssd;
-
 char ultimo_char = ' '; // Variável para armazenar o último caractere digitado
+
+// Filtrar entrada do teclado
+bool eh_caractere_valido(char c) {
+    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+// Inicialização do display OLED
+void inicializar_display() {
+    ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT); 
+
+    // Valida se a configuração do display foi bem-sucedida
+    if (ssd.width == 0 || ssd.height == 0) {
+        printf("Erro ao inicializar display OLED\n");
+        return;
+    }
+
+    ssd1306_config(&ssd);
+    ssd1306_send_data(&ssd);
+    ssd1306_fill(&ssd, false);
+    ssd1306_send_data(&ssd);
+}
+
 
 void atualizar_display() {
     ssd1306_fill(&ssd, false); // Limpa a tela
@@ -98,26 +119,36 @@ void show_number(uint8_t num) {
     }
 }
 
+// Debounce por temporizador
+int64_t debounce_timer_callback(alarm_id_t id, void *user_data) {
+    debounceActive = false;  // Libera o botão para ser pressionado novamente
+    return 0;
+}
+
+
 // Função de interrupção para ambos os botões
 void gpio_callback(uint gpio, uint32_t events) {
-    unsigned long currentTime = to_ms_since_boot(get_absolute_time());
-    if (currentTime - lastInterruptTime < debounceDelay) {
-        return;  // Ignorar interrupção se for muito rápida
-    }
-    lastInterruptTime = currentTime;
+    if (debounceActive) return;
+    debounceActive = true;
+
+    add_alarm_in_ms(debounceDelay, debounce_timer_callback, NULL, false);
 
     if (gpio == BUTTON_A) {
-        ledGreenState = !ledGreenState;
-        gpio_put(LED_GREEN, ledGreenState);
-        printf("Botão A pressionado. LED Verde %s\n", ledGreenState ? "Ligado" : "Desligado");
+        if (gpio_get(BUTTON_A) == 0) { // Verifica se o botão realmente está pressionado
+            ledGreenState = !ledGreenState;
+            gpio_put(LED_GREEN, ledGreenState);
+            printf("Botão A pressionado. LED Verde %s\n", ledGreenState ? "Ligado" : "Desligado");
+        }
     } 
     else if (gpio == BUTTON_B) {
-        ledBlueState = !ledBlueState;
-        gpio_put(LED_BLUE, ledBlueState);
-        printf("Botão B pressionado. LED Azul %s\n", ledBlueState ? "Ligado" : "Desligado");
+        if (gpio_get(BUTTON_B) == 0) { // Verifica se o botão realmente está pressionado
+            ledBlueState = !ledBlueState;
+            gpio_put(LED_BLUE, ledBlueState);
+            printf("Botão B pressionado. LED Azul %s\n", ledBlueState ? "Ligado" : "Desligado");
+        }
     }
 
-    atualizar_display(); // Atualiza o display após mudança no LED
+    atualizar_display(); 
 }
 
 
@@ -163,18 +194,11 @@ int main() {
 
     init_matrix(); // Inicializa a Matriz WS2812
 
-     while (true) {
+    while (true) {
         char received_char = ' ';
-        if (scanf("%c", &received_char) == 1) {
-            printf("Recebido: %c\n", received_char); // Debug no Serial Monitor
-
-            // Atualiza o caractere mais recente
-            if (received_char != '\n' && received_char != '\r') { // Ignora enter
-                ultimo_char = received_char;
-            }
-            // Atualiza o display com o caractere recebido
+        if (scanf("%c", &received_char) == 1 && eh_caractere_valido(received_char)) {
+            ultimo_char = received_char;
             atualizar_display();
-            
             if (received_char >= '0' && received_char <= '9') {
                 show_number(received_char - '0');
             }
