@@ -5,7 +5,7 @@ Este projeto implementa um sistema utilizando um **display OLED SSD1306**, **bot
 
 ## 🔗 Link do Vídeo Ensaio
 
-[Demonstração de Funcionamento do Projeto]()
+[Demonstração de Funcionamento do Projeto](https://www.youtube.com/watch?v=rPqh2b_V23Y&ab_channel=LorenzoGiuseppeOliveiraBaroni)
 
 ## 📌 Funcionalidades
 - Exibir um caractere digitado no **display OLED SSD1306**.
