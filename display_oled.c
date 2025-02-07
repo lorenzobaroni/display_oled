@@ -8,7 +8,7 @@
 #include "pico/stdlib.h"
 #include "ws2812.pio.h" // Biblioteca para controlar LEDs WS2812
 #include "inc/font.h"  // Biblioteca de fontes personalizada
-#include "inc/ssd1306.h"
+#include "inc/ssd1306.h" // Biblioteca para controlar o display ssd1306
 
 // Definições de hardware
 #define MATRIX_PIN 7
@@ -65,22 +65,6 @@ void atualizar_display() {
     ssd1306_send_data(&ssd); // Atualiza o display
 }
 
-void desenhar_retangulo_estatico(ssd1306_t *ssd) {
-    // Define a posição e tamanho do retângulo
-    uint8_t x0 = 2;  // Posição X inicial (margem)
-    uint8_t y0 = 2;  // Posição Y inicial (margem)
-    uint8_t largura = 124;  // Largura do retângulo
-    uint8_t altura = 60;    // Altura do retângulo
-
-    // Desenha o retângulo estático (contorno apenas)
-    ssd1306_rect(ssd, x0, y0, largura, altura, true, false);
-
-    // Atualiza o display para exibir o retângulo
-    ssd1306_send_data(ssd);
-}
-
-
-
 // Números para a matriz de LEDs
 const uint32_t formatos_numeros[10][NUM_LEDS] = {
     {1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1}, // 0
@@ -116,8 +100,6 @@ void show_number(uint8_t num) {
 
 // Função de interrupção para ambos os botões
 void gpio_callback(uint gpio, uint32_t events) {
-    // Desenha o retângulo estático
-    desenhar_retangulo_estatico(&ssd);
     unsigned long currentTime = to_ms_since_boot(get_absolute_time());
     if (currentTime - lastInterruptTime < debounceDelay) {
         return;  // Ignorar interrupção se for muito rápida
@@ -182,8 +164,6 @@ int main() {
     init_matrix(); // Inicializa a Matriz WS2812
 
      while (true) {
-        // Desenha o retângulo estático
-        desenhar_retangulo_estatico(&ssd);
         char received_char = ' ';
         if (scanf("%c", &received_char) == 1) {
             printf("Recebido: %c\n", received_char); // Debug no Serial Monitor
